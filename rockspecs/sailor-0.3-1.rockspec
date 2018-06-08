@@ -1,17 +1,9 @@
--- This file was automatically generated for the LuaDist project.
-
-package = "sailor"
-version = "0.2.1-1"
--- LuaDist source
+package = "Sailor"
+version = "0.3-1"
 source = {
-  tag = "0.2.1-1",
-  url = "git://github.com/LuaDist-testing/sailor.git"
+   url = "git://github.com/Etiene/sailor",
+   tag = "v0.3"
 }
--- Original source
--- source = {
---    url = "git://github.com/Etiene/sailor",
---    tag = "v0.2.1"
--- }
 description = {
    summary = "A Lua MVC Framework",
    detailed = [[
@@ -67,20 +59,20 @@ build = {
          ["sailor.demo-app.pub.thirdparty.latclient.js.js-lua"] = "src/sailor/demo-app/pub/thirdparty/latclient/js/js-lua.js",
          ["sailor.demo-app.pub.thirdparty.latclient.js.latclient"] = "src/sailor/demo-app/pub/thirdparty/latclient/js/latclient.js",
          ["sailor.demo-app.pub.thirdparty.latclient.js.lib.lua51"] = "src/sailor/demo-app/pub/thirdparty/latclient/js/lib/lua5.1.5.min.js",
-         ["sailor.demo-app.layouts.default.css.bootstrap-theme"] = "src/sailor/demo-app/layouts/default/css/bootstrap-theme.css",
-         ["sailor.demo-app.layouts.default.css.bootstrap"] = "src/sailor/demo-app/layouts/default/css/bootstrap.css",
-         ["sailor.demo-app.layouts.default.css.bootstrap-thememin"] = "src/sailor/demo-app/layouts/default/css/bootstrap-theme.min.css",
-         ["sailor.demo-app.layouts.default.css.bootstrapmin"] = "src/sailor/demo-app/layouts/default/css/bootstrap.min.css",
-         ["sailor.demo-app.layouts.default.css.sticky-footer-navbar"] = "src/sailor/demo-app/layouts/default/css/sticky-footer-navbar.css",
-         ["sailor.demo-app.layouts.default.js.jquery"] = "src/sailor/demo-app/layouts/default/js/jquery-1.10.2.min.js",
-         ["sailor.demo-app.layouts.default.js.bootstrap"] = "src/sailor/demo-app/layouts/default/js/bootstrap.js",
-         ["sailor.demo-app.layouts.default.js.bootstrapmin"] = "src/sailor/demo-app/layouts/default/js/bootstrap.min.js",
-         ["sailor.demo-app.layouts.default.fonts.glysvg"] = "src/sailor/demo-app/layouts/default/fonts/glyphicons-halflings-regular.svg",
-         ["sailor.demo-app.layouts.default.fonts.glyttf"] = "src/sailor/demo-app/layouts/default/fonts/glyphicons-halflings-regular.ttf",
-         ["sailor.demo-app.layouts.default.fonts.glyeot"] = "src/sailor/demo-app/layouts/default/fonts/glyphicons-halflings-regular.eot",
-         ["sailor.demo-app.layouts.default.fonts.glywoff"] = "src/sailor/demo-app/layouts/default/fonts/glyphicons-halflings-regular.woff",
-         ["sailor.demo-app.layouts.default.config"] = "src/sailor/demo-app/layouts/default/config.json",
-         ["sailor.demo-app.layouts.default.index"] = "src/sailor/demo-app/layouts/default/index.lp",
+         ["sailor.demo-app.themes.default.css.bootstrap-theme"] = "src/sailor/demo-app/themes/default/css/bootstrap-theme.css",
+         ["sailor.demo-app.themes.default.css.bootstrap"] = "src/sailor/demo-app/themes/default/css/bootstrap.css",
+         ["sailor.demo-app.themes.default.css.bootstrap-thememin"] = "src/sailor/demo-app/themes/default/css/bootstrap-theme.min.css",
+         ["sailor.demo-app.themes.default.css.bootstrapmin"] = "src/sailor/demo-app/themes/default/css/bootstrap.min.css",
+         ["sailor.demo-app.themes.default.css.sticky-footer-navbar"] = "src/sailor/demo-app/themes/default/css/sticky-footer-navbar.css",
+         ["sailor.demo-app.themes.default.js.jquery"] = "src/sailor/demo-app/themes/default/js/jquery-1.10.2.min.js",
+         ["sailor.demo-app.themes.default.js.bootstrap"] = "src/sailor/demo-app/themes/default/js/bootstrap.js",
+         ["sailor.demo-app.themes.default.js.bootstrapmin"] = "src/sailor/demo-app/themes/default/js/bootstrap.min.js",
+         ["sailor.demo-app.themes.default.fonts.glysvg"] = "src/sailor/demo-app/themes/default/fonts/glyphicons-halflings-regular.svg",
+         ["sailor.demo-app.themes.default.fonts.glyttf"] = "src/sailor/demo-app/themes/default/fonts/glyphicons-halflings-regular.ttf",
+         ["sailor.demo-app.themes.default.fonts.glyeot"] = "src/sailor/demo-app/themes/default/fonts/glyphicons-halflings-regular.eot",
+         ["sailor.demo-app.themes.default.fonts.glywoff"] = "src/sailor/demo-app/themes/default/fonts/glyphicons-halflings-regular.woff",
+         ["sailor.demo-app.themes.default.config"] = "src/sailor/demo-app/themes/default/config.json",
+         ["sailor.demo-app.themes.default.main"] = "src/sailor/demo-app/themes/default/main.lp",
       },
       bin = {
          sailor_create = "sailor_create"

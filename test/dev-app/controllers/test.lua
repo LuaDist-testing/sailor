@@ -1,5 +1,4 @@
 local session = require "sailor.session"
-local mail = require "sailor.mail"
 local validation = require "valua"
 local form = require "sailor.form"
 
@@ -14,6 +13,8 @@ function test.index(page)
     page:render('index',{stringVariable = stringVariable,anotherVar = anotherVar})
 end
 
+--This will be recovered once I reorganize the mailer module
+--[[
 function test.mailer(page)
 	local message = "Hello!"
 	if page.POST['email'] then
@@ -26,7 +27,7 @@ function test.mailer(page)
     end
 
     page:render('mailer',{msg = message})
-end
+end]]
 
 function test.models(page)
 	--Testing Models
@@ -86,101 +87,6 @@ function test.models(page)
     else
         page:write("User not found!")
     end
-end
-
-function test.validation(page)
-
-	local check = function(val_test, test_value, expected_error) 
-						local res,err = val_test(test_value)
-						page:write("Validation check on '"..(tostring(test_value)).."': ") 
-						if expected_error then page:write ("Expected ") end
-						if not res then page:write("Error: value "..(err or '')) else page:write("Check!"..(err or '')) end 
-						page:write("<br/>")
-					end
-
-
-	local tests = { validation:new().type("string").len(3,5),
-					validation:new().type("number").len(3,5),
-					validation:new().not_empty(),
-					validation:new().len(2,10),
-					validation:new().type("number"),
-					validation:new().empty(),
-                    validation:new().boolean(),
-                    validation:new().compare("hey"),
-                    validation:new().number().min(45),
-                    validation:new().number().max(1009),
-                    validation:new().date(),
-                    validation:new().date('us'),
-                    validation:new().email(),
-                    validation:new().in_list({"hey",42}),
-                    validation:new().match("^%d+%p%d+%p%d%d%d%d$"),
-                    validation:new().alnum(),
-                    validation:new().integer(),
-                    validation:new().string(),
-                    validation:new().string().alnum(),
-                    validation:new().contains(" "),
-                    validation:new().no_white()
-				}
-
-	local test_values = {  "test string!",
-							"hey",
-							"",
-                            nil,
-                            true,
-                            42,
-                            1337,
-                            '26/10/1980',
-                            '10-26-1980',
-                            '29.02.2014',
-                            '29/02/2016',
-                            'a@a.com',
-                            'asd123',
-                            5.7
-						}
-
-	check(tests[1],test_values[1],true)
-	check(tests[2],test_values[1],true)
-	check(tests[3],test_values[2])
-	check(tests[4],test_values[2])
-	check(tests[5],test_values[2],true)
-	check(tests[6],test_values[3])
-	check(tests[3],test_values[3],true)
-	check(tests[3],test_values[4],true)
-	check(tests[6],test_values[4])
-    check(tests[7],test_values[1],true)
-    check(tests[7],test_values[5])
-    check(tests[8],test_values[1],true)
-    check(tests[8],test_values[2])
-    check(tests[9],test_values[2],true)
-    check(tests[9],test_values[6],true)
-    check(tests[9],test_values[7])
-    check(tests[10],test_values[7],true)
-    check(tests[10],test_values[6])
-    check(tests[11],test_values[8])
-    check(tests[11],test_values[9],true)
-    check(tests[12],test_values[9])
-    check(tests[12],test_values[8],true)
-    check(tests[11],test_values[10],true)
-    check(tests[11],test_values[11])
-    check(tests[13],test_values[11],true)
-    check(tests[13],test_values[12])
-    check(tests[14],test_values[12],true)
-    check(tests[14],test_values[2])
-    check(tests[14],test_values[6])
-    check(tests[15],test_values[1],true)
-    check(tests[15],test_values[8])
-    check(tests[16],test_values[13])
-    check(tests[16],test_values[8],true)
-    check(tests[17],test_values[6])
-    check(tests[17],test_values[14],true)
-    check(tests[18],test_values[14],true)
-    check(tests[18],test_values[1])
-    check(tests[19],test_values[6],true)
-    check(tests[20],test_values[1])
-    check(tests[20],test_values[2],true)
-    check(tests[21],test_values[1],true)
-    check(tests[21],test_values[2])
-
 end
 
 function test.modelval(page)
@@ -249,7 +155,7 @@ function test.destroysession(page)
 end
 
 function test.login(page)
-    local access = require "src.access"
+    local access = require "sailor.access"
     if access.is_guest() then
         page:print("Logging in...<br/>")
         local _,err = access.login("demo","demo")
@@ -274,6 +180,24 @@ end
 function test.client_module_js(page)
     page:render('client_module_js')
 end
+
+function test.realtime(page)
+    page:render('realtime')
+end
+
+function test.upload(page)
+    page:inspect(page.POST)
+
+    if page.POST.datafile then
+        file = io.open ('/Users/ecdalcol/Desktop/tuxedo/test' , 'w')
+        io.output(file)
+        io.write(page.POST.datafile)
+        io.close(file)
+    end
+
+    page:render('upload')
+end
+
 
 
 return test

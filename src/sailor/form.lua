@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- form.lua, v0.2: generates html for forms
+-- form.lua, v0.2.1: generates html for forms
 -- This file is a part of Sailor project
 -- Copyright (c) 2014 Etiene Dalcol <dalcol@etiene.net>
 -- License: MIT
@@ -21,6 +21,11 @@ end
 function form.textarea(model,attribute,html_options)
 	local value, name, html_options = defaults(model,attribute,html_options)
 	return '<textarea name="'..name..'" '..html_options..'>'..value..'</textarea>'
+end
+
+function form.file(model,attribute,html_options)
+	local value, name, html_options = defaults(model,attribute,html_options)
+	return '<input type="file" name="'..name..'" '..html_options..'>'..value..'</textarea>'
 end
 
 function form.dropdown(model,attribute,list,prompt,html_options)
@@ -74,7 +79,7 @@ function form.checkbox(model,attribute,label,checked,html_options)
 	label = label or attribute
 
 	local check = ''
-	if (value ~= nil and value ~= 0 and value ~= '0') or checked == true then
+	if (value ~= nil and value ~= '' and value ~= 0 and value ~= '0') or checked == true then
 		check = ' checked '
 	end
 
