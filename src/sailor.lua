@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- sailor.lua, v0.4.5: core functionalities of the framework
+-- sailor.lua, v0.5.0: core functionalities of the framework
 -- This file is a part of Sailor project
 -- Copyright (c) 2014 Etiene Dalcol <dalcol@etiene.net>
 -- License: MIT
@@ -7,26 +7,28 @@
 --------------------------------------------------------------------------------
 
 local conf = require "conf.conf"
+local remy = require "remy"
 
-sailor = {
+local sailor = {
     conf = conf.sailor,
     _COPYRIGHT = "Copyright (C) 2014-2015 Etiene Dalcol",
     _DESCRIPTION = "Sailor is a framework for creating MVC web applications.",
-    _VERSION = "Sailor 0.4",
+    _VERSION = "Sailor 0.5.0",
 }
 
+-- Loads Lua@client's settings from Sailor conf.
+-- If lua_at_client table is missing, use default Lua@client settings
 local lp = require "web_utils.lp_ex"
+lp.lat.conf.lua_at_client = conf.lua_at_client or require"latclient.conf".lua_at_client
+
 local lfs = require "lfs"
-local open,assert,loadstring,setfenv,load,random = io.open,assert,loadstring,setfenv,load,math.random
-local match,tostring,gsub = string.match,tostring,string.gsub
-local traceback,xpcall = debug.traceback,xpcall
-local Page = {}
+local match, traceback,xpcall = string.match, debug.traceback,xpcall
 local httpd = {}
 
 -- Cross-environment compatible launcher. Makes Sailor adapt to
 -- different web server environments
 function sailor.launch(native_request)
-    if apr_table ~= nil then 
+    if apr_table ~= nil then
         -- This is Apache with mod_lua
         -- Sets a handle function to be called by mod_lua
         httpd = apache2
@@ -34,17 +36,9 @@ function sailor.launch(native_request)
     else
         -- This is a non-Apache (such as Nginx, Lighttpd, etc) or
         -- Apache with CGILua or mod_pLua
-        require "remy"
+        -- Handled by Remy extension
         httpd = remy.httpd
         sailor.remy_mode = remy.init(sailor.remy_mode, native_request)
-        if sailor.remy_mode == remy.MODE_LIGHTTPD then
-            -- FIXME: os.tmpname(), used by web_utils\utils.lua not
-            -- working in LightTPD (affects Windows build only?)
-            -- This breaks every script using "session"
-            function os.tmpname()
-                return 'tmp'
-            end        
-        end
         remy.contentheader('text/html')
         remy.run(sailor.handle_request)
     end
@@ -58,22 +52,26 @@ end
 
 -- Stores the path of the application in sailor.path
 function sailor.set_application_path(r)
-    local dir = lfs.currentdir()
-    if dir == '/' or not dir then
-        local filename = r.uri:match( "([^/]+)$")
-        sailor.path = r.filename:match("^@?(.-)/"..filename.."$")
-    else
-        sailor.path = dir
+    if r.uri and r.filename then
+        local filename = r.uri:match( "([^/]+)$") 
+        if filename then
+            sailor.path = r.filename:match("^@?(.-)/"..filename.."$")
+            return
+        end
     end
+    sailor.path = lfs.currentdir()
 end
 
 -- Encapsulates request_rec functions inside the Page object
 -- Useful for posterior compatibility with other servers
 -- r: webserver's request object
 function sailor.init(r)
+    local page = require "sailor.page"
+
     sailor.set_application_path(r)
+    sailor.base_path = ((r.uri):match('^@?(.-)/index.lua$') or '')
     r.content_type = "text/html"
-    
+
     local GET, GETMULTI = {}, {}
     local POST, POSTMULTI = {}, {}
     if r.parsebody ~= nil then -- only present in Apache 2.4.3 or higher
@@ -83,147 +81,29 @@ function sailor.init(r)
         GET, GETMULTI = r:parseargs()
     end
 
-    local page = {
+    local p = page.new{
         r = r,
-        render = Page.render,
-        redirect = Page.redirect,
-        include = Page.include,
-        inspect = Page.inspect,
         write = function(_,...) r:write(...) end,
         print = function(_,...) r:puts(...) end,
         GET = GET,
         POST = POST,
         POSTMULTI = POSTMULTI,
-        theme = conf.sailor.theme,
-        layout = conf.sailor.layout,
-        title = conf.sailor.app_name,
-        trace = {},
-        base_path = ((r.uri):match('^@?(.-)/index.lua$') or '')
+        base_path = sailor.base_path
     }
+
+    if conf.extensions and conf.extensions.enable then
+        for _,e in pairs(conf.extensions.enable) do
+            package.path = 'extensions/' .. e .. '/?.lua;' .. package.path
+            local c = require "controllers.user"
+        end
+    end
+
     sailor.r = r
     lp.setoutfunc("page:print")
 
-    return page
+    return p
 end
 
--- Aux function
--- Renders a previously read and parsed .lp file
--- path: string for debug purposes, shown on error messages
--- src: the parsed string
--- parms: table, the parameters being passed ahead to the rendered page
-local function render_page(path,src,parms)
-    for k,v in pairs(_G) do parms[k] = v end
-
-    local f
-    if _VERSION == "Lua 5.1" then 
-        f = assert(loadstring(src,'@'..path))
-        setfenv(f,parms)
-    else
-        f = assert(load(src,'@'..path,'t',parms))
-    end
-
-    f()
-end
-
--- Opens and reads a file and returns the read string
--- path: string, file path without ".lp"
-local function read_src(path)
-    local lua_page = assert (open (path..".lp", "rb"))
-    local src = lua_page:read("*all")
-    lua_page:close()
-    return src
-end
-
--- Includes a .lp file from a .lp file
--- path: string, full file path
--- parms: table, vars being passed ahead
-function Page:include(path,parms)
-    parms = parms or {}
-    local incl_src = read_src(((sailor.path):match('(.*)'..self.base_path:gsub('-','%%-') ) or '')..path)
-
-    incl_src = lp.translate(incl_src)
-    parms.page = self
-    render_page(path,incl_src,parms)
-end
-
--- Renders a view from a controller action
--- filename: string, filename without ".lp". The file must be inside /views/<controller name>
--- parms: table, vars being passed ahead.
-function Page:render(filename,parms)
-    parms = parms or {} 
-
-    local src
-    local filepath
-
-    -- If there's a default theme, parse the theme first
-    if self.theme ~= nil and self.theme ~= '' then
-        self.theme_path = self.base_path.."/themes/"..self.theme
-        filepath = ((sailor.path):match('(.*)'..self.base_path:gsub('-','%%-') ) or '')..self.theme_path.."/"..self.layout
-
-        local theme_src = read_src(filepath)
-        local filename_var = "sailor_filename_"..tostring(random(1000))
-        local parms_var = "sailor_parms_"..tostring(random(1000))
-        -- Then remove theme and continue parsing
-        src = gsub(theme_src,"{{content}}",' <? page.theme = nil; page:render('..filename_var..','..parms_var..') ?> ')
-        parms[filename_var] = filename
-        parms[parms_var] = parms
-
-    else
-        local dir = ''
-        if self.controller then
-            dir = '/'..self.controller
-        end
-        -- filename is nil if the controller script is missing in /controllers/
-        -- ToDo: print error informing about missing controller?
-        if filename ~= nil then
-            filepath = sailor.path.."/views"..dir.."/"..filename
-            src = read_src(filepath)
-        end
-
-    end
-   
-    if conf.debug and conf.debug.inspect and ( (conf.sailor.theme and self.theme) or not conf.sailor.theme )then
-        local debug_src = read_src(sailor.path.."/views/error/inspect")
-        src = src..debug_src
-    end
-    
-    if filename ~= nil then
-        src = lp.translate(src)
-        parms.page = self
-        render_page(filepath..".lp",src,parms)
-    end
-end
-
-
--- Redirects to another action or another address
--- route: string, '<controller name>/<action_name>'
--- args: table, vars to be passed in url get style
-function Page:redirect(route,args)
-    args = args or {}
-    if not route:match('^https?://') then
-        route = sailor.make_url(route,args)
-    end
-      
-    self.r.headers_out['Location'] = route
-    self.r.status = 302
-    return self.r.status
-end
-
--- Shows an a trace message on the bottom of the page
--- value: a variable to be inspected
--- [message]: an optional debug message
-function Page:inspect(value,message)
-    if conf.debug.inspect then
-        local inspect
-        if not message then
-            inspect = value    
-        else
-            inspect = {}
-            inspect[message] = value
-        end
-        table.insert(self.trace,inspect)
-    end
-end
 
 -- Auxiliary function to open the autogen page for models and CRUDs
 -- page: our page object
@@ -232,14 +112,14 @@ local function autogen(page)
 
     local src = autogen.gen()
     src = lp.translate(src)
-    render_page('sailor/autogen',src,{page=page})
+    page:render('sailor/autogen',{page=page},src)
 end
 
 -- Gets parameter from url query and made by mod rewrite and reassembles into page.GET
 -- TODO - improve
 local function apache_friendly_url(page)
     if conf.sailor.friendly_urls and page.GET.q and page.GET.q ~= '' then
-        query = {}
+        local query = {}
         for w in string.gmatch(page.GET.q, "[^/]+") do
             table.insert(query,w)
         end
@@ -254,15 +134,30 @@ end
 -- Reads route GET var to decide which controller/action or default page to run.
 -- page: Page object with utilitary functions and request
 function sailor.route(page)
-    
+
     apache_friendly_url(page)
 
     local route_name = page.GET[conf.sailor.route_parameter]
+
     -- Encapsulated error function for showing detailed traceback
     -- Needs improvement
     local function error_handler(msg)
+        if sailor.conf.hide_stack_trace then
+            page:write("<pre>Error 500: Internal Server Error</pre>")
+            return 500
+        end
         page:write("<pre>"..traceback(msg,2).."</pre>")
-        return 500
+    end
+    -- Error for controller or action not found
+    local function error_404()
+        local _, res
+        if conf.sailor.default_error404 and conf.sailor.default_error404 ~= '' then
+            page.controller_view_path = nil
+            _, res = xpcall(function () page:render(conf.sailor.default_error404) end, error_handler)
+            return res or httpd.OK or page.r.status or 200
+        end
+        page.r.status = 404
+        return res or page.r.status
     end
 
     -- If a default static page is configured, run it and prevent routing
@@ -270,68 +165,60 @@ function sailor.route(page)
         xpcall(function () page:render(conf.sailor.default_static) end, error_handler)
         return httpd.OK or page.r.status or 200
     -- If there is a route path, find the correspondent controller/action
-    elseif route_name ~= nil and route_name ~= '' then
-        local controller, action = match(route_name, "([^/]+)/?([^/]*)")
-        if conf.sailor.enable_autogen and controller == "autogen" then
-            res = xpcall(function () autogen(page) end, error_handler)
-            return res or httpd.OK
-        end
-        local route = lfs.attributes (sailor.path.."/controllers/"..controller..".lua")
+    else 
+        local controller, action 
 
-        if not route then
-            -- file not found
-            if conf.sailor.default_error404 and conf.sailor.default_error404 ~= '' then
-                local _,res = xpcall(function () page:render(conf.sailor.default_error404) end, error_handler)
-            end
-            page.r.status = 404
-            return res or page.r.status 
-       else
-            local ctr = require("controllers."..controller)
-            page.controller = controller
+        if not route_name or route_name == '' then
+            controller, action = conf.sailor.default_controller, conf.sailor.default_action
+        else
+            controller, action = match(route_name, "([^/]+)/?([^/]*)")
+        end
+
+        if conf.sailor.enable_autogen and controller == "autogen" then
+            local _,res = xpcall(function () autogen(page) end, error_handler)
+            return res or httpd.OK or page.r.status or 200
+        end
+
+        local ctr
+        _, res = xpcall(function() ctr = require("controllers."..controller) end, error_404)
+        
+        if ctr then
+            local custom_path = ctr.path or (ctr.conf and ctr.conf.path)
+            page.controller_view_path = (custom_path and custom_path..'/views/'..controller) or 'views/'..controller
             -- if no action is specified, defaults to index
             if action == '' then
                 action = 'index'
             end
-            if(ctr[action] == nil) then 
-                -- controller does not have an action with this name
-                if conf.sailor.default_error404 and conf.sailor.default_error404 ~= '' then
-                    local _, res = xpcall(function () page:render('../'..conf.sailor.default_error404) end, error_handler)
-                end
-                page.r.status = 404
-                return res or page.r.status 
-            else
-                -- run action
-                local _, res = xpcall(function() return ctr[action](page) end, error_handler)
-                if res == 404 then
-                    _,res = xpcall(function () page:render('../'..conf.sailor.default_error404) end, error_handler)
-                end
 
-                return res or httpd.OK or page.r.status or 200
-            end
+            if not ctr[action] then return error_404() end
+
+            -- run action
+            local _, res = xpcall(function() return ctr[action](page) end, error_handler)
+            if res == 404 then return error_404() end
         end
-    -- If no route var is defined, run default controller action
-    elseif conf.sailor.default_controller and conf.sailor.default_action then
-        page.controller = conf.sailor.default_controller
-        local ctr = require("controllers."..page.controller)
-        local _,res = xpcall(function() return ctr[conf.sailor.default_action](page) end, error_handler)
 
         return res or httpd.OK or page.r.status or 200
     end
-    -- No route specified and no defaults
+    -- No route specified and no defaults or something went wrong
     return 500
 end
 
+-- DEPRECATED - it was moved to the page object
+--              it will no longer be here on sailor versions >= 0.6
 -- creates a url string based on friendly url configuration
 -- route: string, controller/action or controller
 -- params: table, get vars and values. example: {id = 3, color = "blue"}
 function sailor.make_url(route,params)
     params = params or {}
-    url = route
-    local base_path = ((sailor.r.uri):match('^@?(.-)/index.lua$') or '')
+    local url = route
+    local base_path = sailor.base_path
     if base_path ~= '' then
         base_path = base_path..'/'
     end
     if conf.sailor.friendly_urls then
+        if base_path == '' then
+            base_path = '/'
+        end
         url =  base_path..url
         for k,v in pairs(params) do
             url = url.."/"..k.."/"..v
@@ -345,9 +232,10 @@ function sailor.make_url(route,params)
     return url
 end
 
+-- DEPRECATED, it will no longer be here on sailor versions >= 0.6
 -- Creates a sailor model and returns an instantiated object
 -- There must be a .lua file with the model's name under /model
--- model_name: string, model's name. 
+-- model_name: string, model's name.
 function sailor.new(model_name)
     local model = require "sailor.model"
     local obj = {errors = {}}
@@ -355,9 +243,11 @@ function sailor.new(model_name)
     return sailor.model(model_name):new(obj)
 end
 
+-- DEPRECATED, moved to __call on model module
+--             it will no longer be here on sailor versions >= 0.6
 -- Creates a sailor model that can be instantiated in objects with :new()
 -- There must be a .lua file with the model's name under /model
--- model_name: string, model's name. 
+-- model_name: string, model's name.
 function sailor.model(model_name)
     local model = require "sailor.model"
     local obj = require("models."..model_name)
@@ -366,3 +256,5 @@ function sailor.model(model_name)
 
     return model:new(obj)
 end
+
+return sailor

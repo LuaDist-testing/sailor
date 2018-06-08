@@ -24,6 +24,8 @@ You will find Sailor's config file under `conf/conf.lua`. This file contains a t
 
 `environment` is a string with the name of your current environment. Example: 'test'
 
+`hide_stack_trace` is a boolean that if set to true will make Sailor not throw the full stack trace on errors but a default 500 Internal Server Error message
+
 `db` contains a table with your different database setups. They must contain the following fields:
 
     `driver` is your database driver, example: 'mysql'.
@@ -39,6 +41,8 @@ You will find Sailor's config file under `conf/conf.lua`. This file contains a t
 `smtp.user` and `smtp.server` are the login information for your smtp server.
 
 `smtp.from` is the email address who is sending emails.
+
+`lua_at_client.vm` is the virtual machine that will translate Lua to Javascript in case you'd like to write Lua code for the browser as well. `starlight` is the default. Other options are `moonshine`, `lua51js` and `luavmjs`. You can find more details about them on the reference manual.
 
 `debug.inspect` toggles on/off the exhibition of debug messages on the bottom of the page made with `page.inspect`.
 

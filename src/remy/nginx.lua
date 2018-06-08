@@ -2,6 +2,9 @@
 -- Copyright (c) 2014 Felipe Daragon
 -- License: MIT
 
+local ngx = require "ngx"
+local remy = require "remy"
+
 -- TODO: implement all functions from mod_lua's request_rec
 local request = {
 	-- ENCODING/DECODING FUNCTIONS
@@ -24,6 +27,10 @@ local M = {
   request = request
 }
 
+function M.redirect(url)
+	ngx.redirect(url)
+end
+
 function M.init()
 	local r = request
 	local filename = ngx.var.request_filename
@@ -38,7 +45,7 @@ function M.init()
 	r.method = ngx.var.request_method
 	r.args = remy.splitstring(ngx.var.request_uri,'?')
 	r.banner = M.mode.."/"..ngx.var.nginx_version
-  r.basic_auth_pw = pass
+	r.basic_auth_pw = pass
 	r.canonical_filename = filename
 	r.context_document_root = ngx.var.document_root
 	r.document_root = r.context_document_root
@@ -53,6 +60,8 @@ function M.init()
 	r.uri = uri
 	r.user = user
 	r.useragent_ip = ngx.var.remote_addr
+	r.redirect = M.redirect
+
 end
 
 function M.contentheader(content_type)

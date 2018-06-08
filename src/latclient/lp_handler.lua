@@ -11,6 +11,7 @@ function handle_lp(r)
 end
 
 function provide_file(r)
-	local lat = require "latclient"
-	return lat.handle(r)
+	local conf = require "latclient.conf"
+	local vm = require("latclient."..conf.lua_at_client.vm)
+	return vm.handle(r)
 end

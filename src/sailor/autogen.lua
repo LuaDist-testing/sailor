@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- autogen.lua, v0.2: has codes in strings for autogenerating CRUDS based on sailor models
+-- autogen.lua, v0.3: has codes in strings for autogenerating CRUDS based on sailor models
 -- This file is a part of Sailor project
 -- Copyright (c) 2014 Etiene Dalcol <dalcol@etiene.net>
 -- License: MIT
@@ -19,11 +19,11 @@ local crudgen = false
 if next(page.POST) then
 
 	if page.POST.table_name then
-		modelgen = model.generate_model(page.POST.table_name)		
+		modelgen = model.generate_model(page.POST.table_name)
 	end
 
 	if page.POST.model_name then
-		crudgen = model.generate_crud(page.POST.model_name) 
+		crudgen = model.generate_crud(page.POST.model_name)
 	end
 
 end
@@ -54,18 +54,18 @@ end
 end
 
 -- The code for the generated controller
--- model: the model from which the generated CRUD will refer to 
+-- model: the model from which the generated CRUD will refer to
 function M.generate_controller(model)
 	local code = [[
 local M = {}
 
 function M.index(page)
-	local ]]..model["@name"]..[[s = sailor.model("]]..model["@name"]..[["):find_all()
+	local ]]..model["@name"]..[[s = require "sailor.model"("]]..model["@name"]..[["):find_all()
 	page:render('index',{]]..model["@name"]..[[s = ]]..model["@name"]..[[s})
 end
 
 function M.create(page)
-	local ]]..model["@name"]..[[ = sailor.model("]]..model["@name"]..[["):new()
+	local ]]..model["@name"]..[[ = require "sailor.model"("]]..model["@name"]..[["):new()
 	local saved
 	if next(page.POST) then
 		]]..model["@name"]..[[:get_post(page.POST)
@@ -78,7 +78,7 @@ function M.create(page)
 end
 
 function M.update(page)
-	local ]]..model["@name"]..[[ = sailor.model("]]..model["@name"]..[["):find_by_id(page.GET.id)
+	local ]]..model["@name"]..[[ = require "sailor.model"("]]..model["@name"]..[["):find_by_id(page.GET.id)
 	if not ]]..model["@name"]..[[ then
 		return 404
 	end
@@ -94,7 +94,7 @@ function M.update(page)
 end
 
 function M.view(page)
-	local ]]..model["@name"]..[[ = sailor.model("]]..model["@name"]..[["):find_by_id(page.GET.id)
+	local ]]..model["@name"]..[[ = require "sailor.model"("]]..model["@name"]..[["):find_by_id(page.GET.id)
 	if not ]]..model["@name"]..[[ then
 		return 404
 	end
@@ -102,7 +102,7 @@ function M.view(page)
 end
 
 function M.delete(page)
-	local ]]..model["@name"]..[[ = sailor.model("]]..model["@name"]..[["):find_by_id(page.GET.id)
+	local ]]..model["@name"]..[[ = require "sailor.model"("]]..model["@name"]..[["):find_by_id(page.GET.id)
 	if not ]]..model["@name"]..[[ then
 		return 404
 	end
@@ -125,7 +125,7 @@ return M
 end
 
 -- The code for the generated index page of the CRUD
--- model: the model from which the generated CRUD will refer to 
+-- model: the model from which the generated CRUD will refer to
 function M.generate_index(model)
 	local code = [[
 <style&gt;
@@ -134,13 +134,13 @@ function M.generate_index(model)
 	}
 </style&gt;
 <h2&gt;View all</h2&gt;
-<table class="table"&gt; 
-	<tr&gt; 
+<table class="table"&gt;
+	<tr&gt;
 ]]
 
 	for _,attributes in pairs (model.attributes) do
 		for attr,rules in pairs(attributes) do
-			code = code .. [[		<th&gt;]] .. attr ..  [[</th&gt; 
+			code = code .. [[		<th&gt;]] .. attr ..  [[</th&gt;
 ]]
 		end
 	end
@@ -148,22 +148,22 @@ function M.generate_index(model)
 	code = code .. [[
 	</tr&gt;
 	<?lua for k,v in pairs(]]..model["@name"]..[[s) do ?&gt;
-		<tr onclick="location.href='<%= sailor.make_url(']]..model["@name"]..[[/view',{id = v.id}) %&gt;'" &gt; 
+		<tr onclick="location.href='<%= page:make_url(']]..model["@name"]..[[/view',{id = v.id}) %&gt;'" &gt;
 ]]
 
 	for _,attributes in pairs (model.attributes) do
 		for attr,rules in pairs(attributes) do
-			code = code .. [[			<td&gt; <%= v.]]..attr..[[ %&gt; </td&gt; 
+			code = code .. [[			<td&gt; <%= v.]]..attr..[[ %&gt; </td&gt;
 ]]
 		end
 	end
 
 	code = code ..[[
 		</tr&gt;
-	<?lua end ?&gt; 
-</table&gt; 
+	<?lua end ?&gt;
+</table&gt;
 <br/&gt;
-<a href="<%= sailor.make_url(']]..model["@name"]..[[/create') %&gt;" class="btn btn-primary"&gt;Create new ]]..model["@name"]..[[</a&gt;
+<a href="<%= page:make_url(']]..model["@name"]..[[/create') %&gt;" class="btn btn-primary"&gt;Create new ]]..model["@name"]..[[</a&gt;
 ]]
 
 	code = string.gsub(code,"&gt;",">")
@@ -177,26 +177,26 @@ function M.generate_index(model)
 end
 
 -- The code for the generated read page of the CRUD
--- model: the model from which the generated CRUD will refer to 
+-- model: the model from which the generated CRUD will refer to
 function M.generate_view(model)
 	local code = [[
 <h2&gt;
-	View ]]..model["@name"]..[[ #<%= ]]..model["@name"]..[[.id %&gt; 
-	<small>(<a href="<%= sailor.make_url(']]..model["@name"]..[[/update', {id = ]]..model["@name"]..[[.id} ) %&gt;" >update</a&gt;)</small&gt; 
-	<small>(<a href="<%= sailor.make_url(']]..model["@name"]..[[/delete', {id = ]]..model["@name"]..[[.id} ) %&gt;" >delete</a&gt;)</small&gt;
+	View ]]..model["@name"]..[[ #<%= ]]..model["@name"]..[[.id %&gt;
+	<small>(<a href="<%= page:make_url(']]..model["@name"]..[[/update', {id = ]]..model["@name"]..[[.id} ) %&gt;" >update</a&gt;)</small&gt;
+	<small>(<a href="<%= page:make_url(']]..model["@name"]..[[/delete', {id = ]]..model["@name"]..[[.id} ) %&gt;" >delete</a&gt;)</small&gt;
 </h2&gt;
-<table class="table"&gt; 
+<table class="table"&gt;
 ]]
 	for _,attributes in pairs (model.attributes) do
 		for attr,rules in pairs(attributes) do
-			code = code .. [[	<tr&gt;<td&gt;]]..attr..[[</td&gt;<td&gt;<%= ]]..model["@name"].."."..attr..[[ %&gt; </td&gt;</tr&gt; 
+			code = code .. [[	<tr&gt;<td&gt;]]..attr..[[</td&gt;<td&gt;<%= ]]..model["@name"].."."..attr..[[ %&gt; </td&gt;</tr&gt;
 ]]
 		end
 	end
 	code = code ..[[
-</table&gt; 
+</table&gt;
 <br/&gt;
-<a href="<%= sailor.make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt;
+<a href="<%= page:make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt;
 ]]
 
 	code = string.gsub(code,"&gt;",">")
@@ -209,15 +209,15 @@ function M.generate_view(model)
 end
 
 -- The code for the generated create page of the CRUD
--- model: the model from which the generated CRUD will refer to 
+-- model: the model from which the generated CRUD will refer to
 function M.generate_create(model)
-	code = [[
+	local code = [[
 <?lua local form = require "sailor.form" ?&gt;
 <h2&gt;Create ]]..model["@name"]..[[</h2&gt;
 <?lua if saved == false then ?&gt;
 	There was an error while saving.
 <?lua end ?&gt;
-<form method="post"&gt; 
+<form method="post"&gt;
 ]]
 	for _,attributes in pairs (model.attributes) do
 		for attr,rules in pairs(attributes) do
@@ -231,9 +231,9 @@ function M.generate_create(model)
 	end
 	code = code ..[[
 	<input type="submit" class="btn btn-primary"/&gt;
-</form&gt; 
+</form&gt;
 <br/&gt;
-<a href="<%= sailor.make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt;
+<a href="<%= page:make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt;
 ]]
 
 	code = string.gsub(code,"&gt;",">")
@@ -246,7 +246,7 @@ function M.generate_create(model)
 end
 
 -- The code for the generated update page of the CRUD
--- model: the model from which the generated CRUD will refer to 
+-- model: the model from which the generated CRUD will refer to
 function M.generate_update(model)
 	local code = [[
 <?lua local form = require "sailor.form" ?&gt;
@@ -254,7 +254,7 @@ function M.generate_update(model)
 <?lua if saved == false then ?&gt;
 	There was an error while saving.
 <?lua end ?&gt;
-<form method="post"&gt; 
+<form method="post"&gt;
 ]]
 	for _,attributes in pairs (model.attributes) do
 		for attr,rules in pairs(attributes) do
@@ -269,7 +269,7 @@ function M.generate_update(model)
 	<input type="submit" class="btn btn-primary"/&gt;
 </form&gt;
 <br/&gt;
-<a href="<%= sailor.make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt; 
+<a href="<%= page:make_url(']]..model["@name"]..[[/index') %&gt;"&gt;<- Back to View All</a&gt;
 ]]
 
 	code = string.gsub(code,"&gt;",">")

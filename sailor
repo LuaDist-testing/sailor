@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 
 --------------------------------------------------------------------------------
--- sailor v0.3: Command line utility for sailor
+-- sailor v0.5: Command line utility for sailor
 -- This file is a part of Sailor project
 -- Copyright (c) 2014 Etiene Dalcol <dalcol@etiene.net>
 -- License: MIT
@@ -21,7 +21,12 @@ local function help()
 	print("		This will create your web app under /var/www/hey_arnold.\n")
 	print("  \27[31mtest\t\tUsage: sailor test [FLAGS]\27[0m")
 	print("    		Will run the tests specified for an application.")
+	print("    		Must be called from the base dir of the application.")
 	print("     FLAGS	Optional. Flags for the Busted library.")
+	print("\n  \27[31menable\tUsage: sailor enable NAME\27[0m")
+	print("    		Will install an extension to Sailor and copy necessary files to your app.")
+	print("    		Must be called from the base dir of the application.")
+	print("     NAME	The name of the extension to be enabled.")
 	print("\nOptions:")
 	print("  --help	Shows help message.")
 	print("")
@@ -87,11 +92,52 @@ local function create()
 end
 
 local function test()
+	local resty = false
 	local flags = ''
 	for i=2,#arg do
-		flags = flags..arg[i]..' '
+		if arg[i] == '--resty' then
+			resty = true
+		else
+			flags = flags..arg[i]..' '
+		end
 	end
-	os.execute('busted --helper=tests/bootstrap.lua '..flags..'tests/unit/* tests/functional/*')
+	local ok, code
+	if resty then
+		ok, code = os.execute('resty tests/bootstrap_resty.lua')
+	else
+		ok, code = os.execute('busted --helper=tests/bootstrap.lua '..flags..'tests/unit/* tests/functional/*')
+	end
+
+	if type(ok) == "number" then return ok end -- Lua 5.1 just returns the status code
+	return ok and 0 or 1 -- don't care about actual value
+end
+
+local function enable()
+	local name = 'sailor-'..arg[2]
+	local current_dir = lfs.currentdir()
+	local sailor_path = get_sailor_path(current_dir)
+
+	assert(os.execute('luarocks install '..name))
+	
+	local ext_app = sailor_path.."/sailor/"..arg[2].."/app"
+	assert(os.execute("mkdir -p extensions"))
+	local err = assert(os.execute("cp -a "..ext_app.." extensions/"..arg[2]))
+	if err == 0 then
+		local index_file = assert(io.open ("index.lua" , "r"))
+		local src = index_file:read("*a")
+		index_file:close()
+		
+		local package_path = "package.path =  base_dir..'extensions/"..arg[2].."/?.lua;'..package.path"
+		src = string.gsub(src,"\nlocal sailor",package_path.."\n\nlocal sailor")
+		index_file = assert(io.open ("index.lua" , "w"))
+		index_file:write(src)
+		index_file:close()
+		print("New files:")
+		print("extensions/"..arg[2].."/*\n")
+		print("Files modified:")
+		print("index.lua\n")
+		print("done!")
+	end
 end
 
 local function run()
@@ -99,10 +145,16 @@ local function run()
 	if (arg[1] == 'create' or arg[1] == 'c') and arg[2] then
 		create()
 	elseif arg[1] == 'test' or arg[1] == 't' then
-		test()
+		return test()
+	elseif arg[1] == 'enable' and arg[2] then
+		enable()
 	else
 		help()
 	end
 end
 
-run()
+local exit_code = run()
+if exit_code and exit_code ~= 0 then
+	-- exit code sometimes is > 255 and fails to be propagated
+	os.exit(1, true)
+end

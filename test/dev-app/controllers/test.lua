@@ -1,6 +1,7 @@
 local session = require "sailor.session"
 local validation = require "valua"
 local form = require "sailor.form"
+local sailor = require "sailor"
 
 local test = {}
 
@@ -90,12 +91,13 @@ function test.models(page)
 end
 
 function test.modelval(page)
+    page.theme = nil
 	local User = sailor.model("user")
     local u = User:new()
     u.username = ""
     u.password = "12345"
     local res,err = u:validate()
-    page:print(table.concat(err,'<br/>'), '<br/>')
+    page:write(table.concat(err,'<br/>'), '<br/>')
     u.username = "Lala"
     u.password = "12345"
     local res,err = u:validate()
@@ -124,6 +126,7 @@ function test.redirect(page)
 end
 
 function test.include(page)
+    page.theme = nil
     page:render('include')
 end
 
@@ -155,6 +158,7 @@ function test.destroysession(page)
 end
 
 function test.login(page)
+    --REDO
     local access = require "sailor.access"
     if access.is_guest() then
         page:print("Logging in...<br/>")
@@ -198,6 +202,35 @@ function test.upload(page)
     page:render('upload')
 end
 
+function test.starlight(page)
+    page:render('starlight')
+end
 
+function test.lua51js(page)
+    page:render('lua51js')
+end
+
+function test.luavmjs(page)
+    page:render('luavmjs')
+end
+
+function test.frontend_performance(page)
+    page.theme = nil
+    page:render('frontend_performance')
+end
+
+function test.post(page)
+    page.theme = nil
+    for k, v in pairs(page.POST) do
+        page:write(k..": "..v)
+    end
+end
+
+function test.get(page)
+    page.theme = nil
+    for k, v in pairs(page.GET) do
+        page:write(k..": "..v)
+    end
+end
 
 return test

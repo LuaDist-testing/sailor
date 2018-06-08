@@ -1,14 +1,41 @@
 --------------------------------------------------------------------------------
--- model.lua, v0.7: basic model creator, uses db module
+-- model.lua, v0.9.1: basic model creator, uses db module
 -- This file is a part of Sailor project
 -- Copyright (c) 2014 Etiene Dalcol <dalcol@etiene.net>
 -- License: MIT
 -- http://sailorproject.org
 --------------------------------------------------------------------------------
+
+local sailor = require "sailor"
 local model = {}
 local db = require("sailor.db")
 local autogen = require ("sailor.autogen")
 local util = require "web_utils.utils"
+
+-- Creates a sailor model that can be instantiated in objects with :new()
+-- There must be a .lua file with the model's name under /model
+-- @param model_name: string, model's name.
+-- Usage: local MyModel = require "sailor.model"('my_model')
+local o = {__call = function(self,model_name)
+	    local obj = require("models."..model_name)
+	    obj["@name"] = model_name
+	    obj.errors = {}
+
+	    return self:new(obj)
+	end
+}
+setmetatable(model,o)
+
+-- Encapsulates db functions, does not call them if a transaction is going on
+-- Assures correct counting of db.close on auto integrity tests
+local function db_connect()
+	if db.transaction then return end
+	db.connect()
+end
+local function db_close()
+	if db.transaction then return end
+	db.close()
+end
 
 --Warning: this is a tech preview and this model class might or might not avoid SQL injections.
 --Attention, OO stuff! Will produce our little pretty objects
@@ -17,6 +44,7 @@ function model:new(obj)
 	obj = util.deepcopy(obj)
 
 	setmetatable(obj,self)
+	-- REWRITE 
 	self.__index = function (table, key)
 		if key ~= "attributes" and key ~= "@name" and key ~= "relations" and key ~= "loaded_relations" and key ~= "db" and not model[key] and key ~= "errors" then
 			if obj.relations and obj.relations[key] then
@@ -28,7 +56,7 @@ function model:new(obj)
 	obj.__newindex = function (table, key, value)
 		if key ~= '__newindex'  and  key ~= '__index' and key ~= 'loaded_relations' then
 			local found = false
-			for _,attrs in pairs(obj.attributes) do 
+			for _,attrs in pairs(obj.attributes) do
 				if attrs[key] then
 					found = true
 				end
@@ -87,45 +115,42 @@ function model:get_relation(key)
 			obj = Model:find_all(relation.attribute..' = '..self[self.db.key])
 
 		elseif relation.relation == "MANY_MANY" then
-			db.connect()
-			local cur = db.query("select "..relation.attributes[2].." from "..relation.table.." where "..relation.attributes[1].."='"..self[self.db.key].."';")
-			local res = {}
-			local row = cur:fetch ({}, "a")
-			while row do
+			db_connect()
+			local res = db.query("select "..relation.attributes[2].." from "..relation.table.." where "..relation.attributes[1].."='"..self[self.db.key].."';")
+			for _,row in ipairs(res) do
 				table.insert(obj,Model:find_by_id(row[relation.attributes[2]]))
-				row = cur:fetch (row, "a")
 			end
-			cur:close()
-			db.close()
+			db_close()
 		end
 
-
-		self.loaded_relations[key] = obj 
+		self.loaded_relations[key] = obj
 		return obj
 	else
 		return self.loaded_relations[key]
 	end
-end	
+end
 
 -- (escaped) Inserts our model values in the db table!
 function model:insert()
-	db.connect()
+	db_connect()
 	local key = self.db.key
 	local attributes = self.attributes
 
 	local attrs = {}
 	local values = {}
-	for _,n in pairs(self.attributes) do 
+	for _,n in pairs(self.attributes) do
 		for attr,_ in pairs(n) do
-			table.insert(attrs,attr)
-			if not self[attr] then
-				table.insert(values,"null")
-			elseif type(self[attr]) == 'number' then
-				table.insert(values,self[attr])
-			elseif type(self[attr]) == 'boolean' then
-				table.insert(values,tostring(self[attr]))
-			else
-				table.insert(values,"'"..db.escape(self[attr]).."'")
+			if attr ~= self.db.key then
+				table.insert(attrs,attr)
+				if not self[attr] then
+					table.insert(values,"null")
+				elseif type(self[attr]) == 'number' then
+					table.insert(values,self[attr])
+				elseif type(self[attr]) == 'boolean' then
+					table.insert(values,tostring(self[attr]))
+				else
+					table.insert(values,"'"..db.escape(self[attr]).."'")
+				end
 			end
 		end
 	end
@@ -134,20 +159,20 @@ function model:insert()
 
 	local query = "insert into "..self.db.table.."("..attr_string..") values ("..value_string..")"
 
-	local id = db.query_insert(query)
+	local id = db.query_insert(query,self.db.key)
 
 	self[self.db.key] = id
-	db.close()
+	db_close()
 	return true
 end
 
 -- (escaped) Updates our model values in the db table!
 function model:update()
-	db.connect()
+	db_connect()
 	local attributes = self.attributes
 	local key = self.db.key
 	local updates = {}
-	for _,n in pairs(self.attributes) do 
+	for _,n in pairs(self.attributes) do
 		for attr,_ in pairs(n) do
 			local string = attr.."="
 			if not self[attr] then
@@ -166,7 +191,7 @@ function model:update()
 	local query = "update "..self.db.table.." set "..update_string.." where "..key.." = "..db.escape(self[key])..";"
 
 	local u = (db.query(query) ~= 0)
-	db.close()
+	db_close()
 	return u
 end
 
@@ -175,9 +200,9 @@ end
 function model:fetch_object(cur,res_table)
 	local row = cur:fetch ({}, "a")
 
-	if not row then 
-		cur:close() 
-		return false 
+	if not row then
+		cur:close()
+		return false
 	end
 
 	local types = cur:getcoltypes()
@@ -189,31 +214,31 @@ function model:fetch_object(cur,res_table)
 		end
 	end
 	local obj = sailor.model(self["@name"]):new(row)
-	if res_table ~= nil then 
+	if res_table ~= nil then
 		table.insert(res_table,obj)
 	else
 		cur:close()
 	end
-	
+
 	return obj
 end
 
 -- (escaped) Finds objects with the given id
 function model:find_by_id(id)
 	if not id then return nil end
-	db.connect()
+	db_connect()
+	local res = db.query("select * from "..self.db.table.." where "..self.db.key.."='"..db.escape(id).."';")
+	db_close()
 
-	local cur = db.query("select * from "..self.db.table.." where "..self.db.key.."='"..db.escape(id).."';")
-	local f = self:fetch_object(cur)
-	db.close()
-	return f
+	if res and next(res) then return sailor.model(self["@name"]):new(res[1]) end
+	return false
 end
 
 -- (escaped) Finds objects with the given attributes
 -- attributes: table, Example {name='joao',age = 26}
 -- Might need a refactor to include other comparisons such as LIKE, > etc.
 function model:find_by_attributes(attributes)
-	db.connect()
+	db_connect()
 
 	local n = 0
     local where = ' where '
@@ -226,53 +251,56 @@ function model:find_by_attributes(attributes)
         n = n+1
     end
 
-    local cur = db.query("select * from "..self.db.table..where..";")
-	local f = self:fetch_object(cur)
-	db.close()
-	return f
-	
+    local res = db.query("select * from "..self.db.table..where..";")
+	db_close()
+
+	if res and next(res) then return sailor.model(self["@name"]):new(res[1]) end
+	return false
 end
 
 -- NOT ESCAPED, DONT USE IT UNLESS YOU WROTE THE WHERE STRING YOURSELF
 -- Finds an object based on the given part of the SQL query after the WHERE
 -- Returns the object found or nil
 function model:find(where_string)
-	db.connect()
-	local cur = db.query("select * from "..self.db.table.." where "..where_string..";")
-	local f = self:fetch_object(cur)
-	db.close()
-	return f
+	db_connect()
+	local res = db.query("select * from "..self.db.table.." where "..where_string..";")
+	db_close()
+
+	if res and next(res) then return sailor.model(self["@name"]):new(res[1]) end
+	return false
 end
 
 -- NOT ESCAPED, DONT USE IT UNLESS YOU WROTE THE WHERE STRING YOURSELF
 -- Finds all objects based on the given part of the SQL query after the WHERE
 -- Returns a table containing all objects found or empty table
 function model:find_all(where_string)
-	db.connect()
+	db_connect()
 	local key = self.db.key
 	if where_string then
 		where_string = " where "..where_string
 	else
 		where_string = ''
 	end
-	local cur = db.query("select * from "..self.db.table..where_string..";")
-	local res = {}
-	while(self:fetch_object(cur,res)) do end
-	cur:close()
-	db.close()
+	local res = db.query("select * from "..self.db.table..where_string..";")
+	db_close()
+	if not res then return {} end
+
+	for k,_ in ipairs(res) do
+		res[k] = sailor.model(self["@name"]):new(res[k])
+	end
 	return res
 end
 
 -- (escaped) Deletes our object on db
 function model:delete()
-	db.connect()
+	db_connect()
 	local id = self[self.db.key]
 	--if id and self:find_by_id(id) then
 		local d = (db.query("delete from "..self.db.table.." where "..self.db.key.."='"..db.escape(id).."';") ~= 0)
-		db.close()
+		db_close()
 		return d
 	--end
-	--db.close()
+	--db_close()
 	--return false
 end
 
@@ -281,9 +309,9 @@ function model:validate()
 	local check = true
 	local errs = {}
 
-	for _,n in pairs(self.attributes) do 
+	for _,n in pairs(self.attributes) do
 		for attr,rules in pairs(n) do
-			if rules and rules ~= "safe" then 
+			if rules and rules ~= "safe" then
 				local res, err = rules(self[attr])
 				check = check and res
 				if not res then
@@ -323,9 +351,9 @@ end
 -- model_name: string, the name of the model
 function model.generate_crud(model_name)
 	local f=io.open(sailor.path.."/models/"..model_name..".lua","r")
-	if f == nil then 
-   		error("The model '"..model_name.."'does not exist") 
-   		return false 
+	if f == nil then
+   		error("The model '"..model_name.."'does not exist")
+   		return false
    	else
    		io.close(f)
 
@@ -344,19 +372,14 @@ end
 -- Generates a model based on a given table
 -- table_name, the name of the table
 function model.generate_model(table_name)
-	db.connect()
-	local check_query = [[SHOW TABLES LIKE ']]..table_name..[[';]]
-	local cur = db.query(check_query)
-	local row = cur:fetch ({}, "a")
-	if not row then
+	db_connect()
+
+	if not db.table_exists(table_name)  then
 		db:close()
-		cur:close()
 		error("The table '"..table_name.."' does not exist.")
 		return false
    	else
-		local query = [[SELECT *
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE table_name = ']]..table_name..[[';]]
+
 
 		local code = [[-- Uncomment this to use validation rules
 -- local val = require "valua"
@@ -368,19 +391,15 @@ M.attributes = {
 	-- Ex. {id = val:new().integer()}
 ]]
 
+
+		local collumns,key = db.get_columns(table_name)
+		db_close()
 		
-		local key
-		cur = db.query(query)
-		local res = {}
-		row = cur:fetch ({}, "a")
-		while row do
-			if row.COLUMN_KEY == "PRI" then
-				key = row.COLUMN_NAME
-			end
+		for k,col in ipairs(collumns) do
+			
 			code = code..[[
-	{ ]]..row.COLUMN_NAME..[[ = "safe" },
+	{ ]]..col..[[ = "safe" },
 ]]
-			row = cur:fetch (row, "a")
 		end
 		code = code..[[
 }
@@ -395,8 +414,7 @@ M.relations = {}
 return M
 
 ]]
-		cur:close()
-		db.close()
+		
 		local file = io.open("models/"..table_name..".lua", "w")
 		if file:write(code) then
 			file:close()
@@ -409,7 +427,7 @@ end
 --[[function model:generate_mysql()
 	local query = "create table "..self.db.table.."("
 
-	for attr,rules in pairs(self.attributes) do 
+	for attr,rules in pairs(self.attributes) do
 		query = query..attr.." "
 		local attr_type
 		local not_null = ""
@@ -438,25 +456,23 @@ end
 		if not attr_type then
 			attr_type = "text"
 		end
-		
+
 		query = query..attr_type..not_null..", "
 	end
 
 	query = query:sub(1, -3)..");"
 
-	db.connect()
+	db_connect()
 	db.query(query)
-	db.close()
+	db_close()
 end]]
 
 -- Gets the amount of stored objects
 function model:count()
-	db.connect()
-	local cur = db.query("select count(*) from "..self.db.table..";")
-	local count = cur:fetch()
-	cur:close()
-	db.close()
-	return tonumber(count)
+	db_connect()
+	local res = db.query_one("select count(*) from "..self.db.table..";")
+	db_close()
+	return tonumber(res)
 end
 
 return model
