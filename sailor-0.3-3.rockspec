@@ -1,10 +1,10 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "sailor"
-version = "0.3-1"
+version = "0.3-3"
 -- LuaDist source
 source = {
-  tag = "0.3-1",
+  tag = "0.3-3",
   url = "git://github.com/LuaDist-testing/sailor.git"
 }
 -- Original source
@@ -26,7 +26,7 @@ dependencies = {
    'luafilesystem >= 1.6.2',
    'valua >= 0.2.2',
    'lbase64 >= 20120807',
-   'cgilua >= 5.1.4',
+   'cgilua >= 5.1.4, < 5.2',
    'xavante >= 2.3',
    'wsapi-xavante >= 1.6.1' 
 }
@@ -38,15 +38,19 @@ build = {
       remy = "src/remy.lua",
       ['remy.cgilua'] = "src/remy/cgilua.lua",
       ['remy.mod_plua'] = "src/remy/mod_plua.lua",
+      ['remy.mod_magnet'] = "src/remy/mod_magnet.lua",
+      ['remy.lwan'] = "src/remy/lwan.lua",
       ['remy.nginx'] = "src/remy/nginx.lua",
       sailor = "src/sailor.lua",
       ['sailor.access'] = "src/sailor/access.lua",
+      ['sailor.autogen'] = "src/sailor/autogen.lua",
       ['sailor.cookie'] = "src/sailor/cookie.lua",
       ['sailor.db'] = "src/sailor/db.lua",
       ['sailor.demo-app.conf.conf'] = "src/sailor/demo-app/conf/conf.lua",
       ['sailor.demo-app.start-server'] = "src/sailor/demo-app/start-server.lua",
       ['sailor.demo-app.controllers.main'] = "src/sailor/demo-app/controllers/main.lua",
       ['sailor.demo-app.index'] = "src/sailor/demo-app/index.lua",
+      ['sailor.demo-app.index-magnet'] = "src/sailor/demo-app/index-magnet.lua",
       ['sailor.form'] = "src/sailor/form.lua",
       ['sailor.model'] = "src/sailor/model.lua",
       ['sailor.session'] = "src/sailor/session.lua",
