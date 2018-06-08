@@ -1,10 +1,10 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "sailor"
-version = "0.5-3"
+version = "0.5-4"
 -- LuaDist source
 source = {
-  tag = "0.5-3",
+  tag = "0.5-4",
   url = "git://github.com/LuaDist-testing/sailor.git"
 }
 -- Original source
@@ -26,7 +26,7 @@ dependencies = {
    'luafilesystem >= 1.6.2',
    'valua >= 0.2.2',
    'lbase64 >= 20120807',
-   'cgilua >= 5.1.4, < 5.2',
+   'cgilua >= 5.1.4',
    'xavante >= 2.3',
    'wsapi-xavante >= 1.6.1',
    'busted >= 2.0.rc9' 
