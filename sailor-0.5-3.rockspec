@@ -1,15 +1,15 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "sailor"
-version = "0.5-1"
+version = "0.5-3"
 -- LuaDist source
 source = {
-  tag = "0.5-1",
+  tag = "0.5-3",
   url = "git://github.com/LuaDist-testing/sailor.git"
 }
 -- Original source
 -- source = {
---    url = "git://github.com/Etiene/sailor",
+--    url = "git://github.com/sailorproject/sailor",
 --    tag = "v0.5-alpha"
 -- }
 description = {
@@ -44,6 +44,7 @@ build = {
       ['latclient.starlight'] = "src/latclient/starlight.lua",
       remy = "src/remy.lua",
       ['remy.cgilua'] = "src/remy/cgilua.lua",
+      ['remy.mod_magnet'] = "src/remy/mod_magnet.lua",
       ['remy.mod_plua'] = "src/remy/mod_plua.lua",
       ['remy.nginx'] = "src/remy/nginx.lua",
       ['remy.lwan'] = "src/remy/lwan.lua",
