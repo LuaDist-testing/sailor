@@ -1,17 +1,9 @@
--- This file was automatically generated for the LuaDist project.
-
-package = "sailor"
+package = "Sailor"
 version = "0.3-3"
--- LuaDist source
 source = {
-  tag = "0.3-3",
-  url = "git://github.com/LuaDist-testing/sailor.git"
+   url = "git://github.com/Etiene/sailor",
+   tag = "v0.3"
 }
--- Original source
--- source = {
---    url = "git://github.com/Etiene/sailor",
---    tag = "v0.3"
--- }
 description = {
    summary = "A Lua MVC Framework",
    detailed = [[
